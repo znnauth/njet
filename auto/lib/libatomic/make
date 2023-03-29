@@ -1,0 +1,17 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+
+    cat << END                                            >> $NJT_MAKEFILE
+
+$NJT_LIBATOMIC/src/libatomic_ops.a:	$NJT_LIBATOMIC/Makefile
+	cd $NJT_LIBATOMIC && \$(MAKE)
+
+$NJT_LIBATOMIC/Makefile:	$NJT_MAKEFILE
+	cd $NJT_LIBATOMIC \\
+	&& if [ -f Makefile ]; then \$(MAKE) distclean; fi \\
+	&& ./configure
+
+END

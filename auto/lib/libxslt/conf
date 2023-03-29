@@ -1,0 +1,166 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+
+    njt_feature="libxslt"
+    njt_feature_name=
+    njt_feature_run=no
+    njt_feature_incs="#include <libxml/parser.h>
+                      #include <libxml/tree.h>
+                      #include <libxslt/xslt.h>
+                      #include <libxslt/xsltInternals.h>
+                      #include <libxslt/transform.h>
+                      #include <libxslt/xsltutils.h>"
+    njt_feature_path="/usr/include/libxml2"
+    njt_feature_libs="-lxml2 -lxslt"
+    njt_feature_test="xmlParserCtxtPtr    ctxt = NULL;
+                      xsltStylesheetPtr   sheet = NULL;
+                      xmlDocPtr           doc = NULL;
+                      xmlParseChunk(ctxt, NULL, 0, 0);
+                      xsltApplyStylesheet(sheet, doc, NULL);"
+    . auto/feature
+
+
+if [ $njt_found = no ]; then
+
+    # FreeBSD port
+
+    njt_feature="libxslt in /usr/local/"
+    njt_feature_path="/usr/local/include/libxml2 /usr/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/usr/local/lib -L/usr/local/lib -lxml2 -lxslt"
+    else
+        njt_feature_libs="-L/usr/local/lib -lxml2 -lxslt"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = no ]; then
+
+    # NetBSD port
+
+    njt_feature="libxslt in /usr/pkg/"
+    njt_feature_path="/usr/pkg/include/libxml2 /usr/pkg/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/usr/pkg/lib -L/usr/pkg/lib -lxml2 -lxslt"
+    else
+        njt_feature_libs="-L/usr/pkg/lib -lxml2 -lxslt"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = no ]; then
+
+    # MacPorts
+
+    njt_feature="libxslt in /opt/local/"
+    njt_feature_path="/opt/local/include/libxml2 /opt/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/opt/local/lib -L/opt/local/lib -lxml2 -lxslt"
+    else
+        njt_feature_libs="-L/opt/local/lib -lxml2 -lxslt"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = yes ]; then
+
+    CORE_INCS="$CORE_INCS $njt_feature_path"
+
+    if [ $USE_LIBXSLT = YES ]; then
+        CORE_LIBS="$CORE_LIBS $njt_feature_libs"
+    fi
+
+    NJT_LIB_LIBXSLT=$njt_feature_libs
+
+else
+
+cat << END
+
+$0: error: the HTTP XSLT module requires the libxml2/libxslt
+libraries. You can either do not enable the module or install the libraries.
+
+END
+
+    exit 1
+fi
+
+
+    njt_feature="libexslt"
+    njt_feature_name=NJT_HAVE_EXSLT
+    njt_feature_run=no
+    njt_feature_incs="#include <libexslt/exslt.h>"
+    njt_feature_path="/usr/include/libxml2"
+    njt_feature_libs="-lexslt"
+    njt_feature_test="exsltRegisterAll();"
+    . auto/feature
+
+if [ $njt_found = no ]; then
+
+    # FreeBSD port
+
+    njt_feature="libexslt in /usr/local/"
+    njt_feature_path="/usr/local/include/libxml2 /usr/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/usr/local/lib -L/usr/local/lib -lexslt"
+    else
+        njt_feature_libs="-L/usr/local/lib -lexslt"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = no ]; then
+
+    # NetBSD port
+
+    njt_feature="libexslt in /usr/pkg/"
+    njt_feature_path="/usr/pkg/include/libxml2 /usr/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/usr/pkg/lib -L/usr/pkg/lib -lexslt"
+    else
+        njt_feature_libs="-L/usr/pkg/lib -lexslt"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = no ]; then
+
+    # MacPorts
+
+    njt_feature="libexslt in /opt/local/"
+    njt_feature_path="/opt/local/include/libxml2 /opt/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/opt/local/lib -L/opt/local/lib -lexslt"
+    else
+        njt_feature_libs="-L/opt/local/lib -lexslt"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = yes ]; then
+    if [ $USE_LIBXSLT = YES ]; then
+        CORE_LIBS="$CORE_LIBS -lexslt"
+    fi
+
+    NJT_LIB_LIBXSLT="$NJT_LIB_LIBXSLT -lexslt"
+fi

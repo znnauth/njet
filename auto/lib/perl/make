@@ -1,0 +1,47 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+
+cat << END                                                    >> $NJT_MAKEFILE
+
+$NJT_OBJS/src/http/modules/perl/njt_http_perl_module.o: \\
+		$NJT_OBJS/$njt_perl_module
+
+$NJT_OBJS/$njt_perl_module: \\
+		\$(CORE_DEPS) \$(HTTP_DEPS) \\
+		src/http/modules/perl/njt_http_perl_module.h \\
+		$NJT_OBJS/src/http/modules/perl/Makefile
+	cd $NJT_OBJS/src/http/modules/perl && \$(MAKE)
+
+	rm -rf $NJT_OBJS/install_perl
+
+
+$NJT_OBJS/src/http/modules/perl/Makefile: \\
+		$NJT_AUTO_CONFIG_H \\
+		src/core/njet.h \\
+		src/http/modules/perl/Makefile.PL \\
+		src/http/modules/perl/njet.pm \\
+		src/http/modules/perl/njet.xs \\
+		src/http/modules/perl/typemap
+	grep 'define NJT_VERSION' src/core/njet.h \\
+		| sed -e 's/^.*"\(.*\)".*/\1/' > \\
+		$NJT_OBJS/src/http/modules/perl/version
+	sed "s/%%VERSION%%/\`cat $NJT_OBJS/src/http/modules/perl/version\`/" \\
+		src/http/modules/perl/njet.pm > \\
+		$NJT_OBJS/src/http/modules/perl/njet.pm
+	cp -p src/http/modules/perl/njet.xs $NJT_OBJS/src/http/modules/perl/
+	cp -p src/http/modules/perl/typemap $NJT_OBJS/src/http/modules/perl/
+	cp -p src/http/modules/perl/Makefile.PL $NJT_OBJS/src/http/modules/perl/
+
+	cd $NJT_OBJS/src/http/modules/perl \\
+		&& NJT_PM_CFLAGS="\$(NJT_PM_CFLAGS) -g $NJT_CC_OPT" \\
+			NJT_PM_LDFLAGS="$NJT_LD_OPT \$(NJT_PM_LDFLAGS)" \\
+			NJT_INCS="$CORE_INCS $NJT_OBJS $HTTP_INCS" \\
+			NJT_DEPS="\$(CORE_DEPS) \$(HTTP_DEPS)" \\
+		$NJT_PERL Makefile.PL \\
+			LIB=$NJT_PERL_MODULES \\
+			INSTALLSITEMAN3DIR=$NJT_PERL_MODULES_MAN
+
+END

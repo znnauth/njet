@@ -1,0 +1,98 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+
+    njt_feature="GeoIP library"
+    njt_feature_name=
+    njt_feature_run=no
+    njt_feature_incs="#include <GeoIP.h>"
+    njt_feature_path=
+    njt_feature_libs="-lGeoIP"
+    njt_feature_test="GeoIP_open(NULL, 0)"
+    . auto/feature
+
+
+if [ $njt_found = no ]; then
+
+    # FreeBSD port
+
+    njt_feature="GeoIP library in /usr/local/"
+    njt_feature_path="/usr/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/usr/local/lib -L/usr/local/lib -lGeoIP"
+    else
+        njt_feature_libs="-L/usr/local/lib -lGeoIP"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = no ]; then
+
+    # NetBSD port
+
+    njt_feature="GeoIP library in /usr/pkg/"
+    njt_feature_path="/usr/pkg/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/usr/pkg/lib -L/usr/pkg/lib -lGeoIP"
+    else
+        njt_feature_libs="-L/usr/pkg/lib -lGeoIP"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = no ]; then
+
+    # MacPorts
+
+    njt_feature="GeoIP library in /opt/local/"
+    njt_feature_path="/opt/local/include"
+
+    if [ $NJT_RPATH = YES ]; then
+        njt_feature_libs="-R/opt/local/lib -L/opt/local/lib -lGeoIP"
+    else
+        njt_feature_libs="-L/opt/local/lib -lGeoIP"
+    fi
+
+    . auto/feature
+fi
+
+
+if [ $njt_found = yes ]; then
+
+    CORE_INCS="$CORE_INCS $njt_feature_path"
+
+    if [ $USE_GEOIP = YES ]; then
+        CORE_LIBS="$CORE_LIBS $njt_feature_libs"
+    fi
+
+    NJT_LIB_GEOIP=$njt_feature_libs
+
+    njt_feature="GeoIP IPv6 support"
+    njt_feature_name="NJT_HAVE_GEOIP_V6"
+    njt_feature_run=no
+    njt_feature_incs="#include <stdio.h>
+                      #include <GeoIP.h>"
+    #njt_feature_path=
+    #njt_feature_libs=
+    njt_feature_test="printf(\"%d\", GEOIP_CITY_EDITION_REV0_V6);"
+    . auto/feature
+
+else
+
+cat << END
+
+$0: error: the GeoIP module requires the GeoIP library.
+You can either do not enable the module or install the library.
+
+END
+
+    exit 1
+fi

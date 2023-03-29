@@ -1,0 +1,169 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+
+if [ $PCRE_LIBRARY = PCRE2 ]; then
+
+    # PCRE2
+
+    if [ $NJT_CC_NAME = msvc ]; then
+
+        # With PCRE2, it is not possible to compile all sources.
+        # Since list of source files changes between versions, we
+        # test files which might not be present.
+
+        njt_pcre_srcs="pcre2_auto_possess.c \
+                       pcre2_chartables.c \
+                       pcre2_compile.c \
+                       pcre2_config.c \
+                       pcre2_context.c \
+                       pcre2_dfa_match.c \
+                       pcre2_error.c \
+                       pcre2_jit_compile.c \
+                       pcre2_maketables.c \
+                       pcre2_match.c \
+                       pcre2_match_data.c \
+                       pcre2_newline.c \
+                       pcre2_ord2utf.c \
+                       pcre2_pattern_info.c \
+                       pcre2_string_utils.c \
+                       pcre2_study.c \
+                       pcre2_substitute.c \
+                       pcre2_substring.c \
+                       pcre2_tables.c \
+                       pcre2_ucd.c \
+                       pcre2_valid_utf.c \
+                       pcre2_xclass.c"
+
+        njt_pcre_test="pcre2_convert.c \
+                       pcre2_extuni.c \
+                       pcre2_find_bracket.c \
+                       pcre2_script_run.c \
+                       pcre2_serialize.c"
+
+        for njt_src in $njt_pcre_test
+        do
+            if [ -f $PCRE/src/$njt_src ]; then
+                njt_pcre_srcs="$njt_pcre_srcs $njt_src"
+            fi
+        done
+
+        njt_pcre_objs=`echo $njt_pcre_srcs \
+            | sed -e "s#\([^ ]*\.\)c#\1$njt_objext#g"`
+
+        njt_pcre_srcs=`echo $njt_pcre_srcs \
+            | sed -e "s/  *\([^ ][^ ]*\)/$njt_regex_cont\1/g"`
+        njt_pcre_objs=`echo $njt_pcre_objs \
+            | sed -e "s/  *\([^ ][^ ]*\)/$njt_regex_cont\1/g"`
+
+        cat << END                                            >> $NJT_MAKEFILE
+
+PCRE_CFLAGS =	-O2 -Ob1 -Oi -Gs $LIBC $CPU_OPT
+PCRE_FLAGS =	-DHAVE_CONFIG_H -DPCRE2_STATIC -DPCRE2_CODE_UNIT_WIDTH=8 \\
+		-DHAVE_MEMMOVE
+
+PCRE_SRCS =	 $njt_pcre_srcs
+PCRE_OBJS =	 $njt_pcre_objs
+
+$PCRE/src/pcre2.h:
+	cd $PCRE/src \\
+	&& copy /y config.h.generic config.h \\
+	&& copy /y pcre2.h.generic pcre2.h \\
+	&& copy /y pcre2_chartables.c.dist pcre2_chartables.c
+
+$PCRE/src/pcre2-8.lib:	$PCRE/src/pcre2.h $NJT_MAKEFILE
+	cd $PCRE/src \\
+	&& cl -nologo -c \$(PCRE_CFLAGS) -I . \$(PCRE_FLAGS) \$(PCRE_SRCS) \\
+	&& link -lib -out:pcre2-8.lib -verbose:lib \$(PCRE_OBJS)
+
+END
+
+    else
+
+        cat << END                                            >> $NJT_MAKEFILE
+
+$PCRE/src/pcre2.h:	$PCRE/Makefile
+
+$PCRE/Makefile:	$NJT_MAKEFILE
+	cd $PCRE \\
+	&& if [ -f Makefile ]; then \$(MAKE) distclean; fi \\
+	&& CC="\$(CC)" CFLAGS="$PCRE_OPT" \\
+	./configure --disable-shared $PCRE_CONF_OPT
+
+$PCRE/.libs/libpcre2-8.a:	$PCRE/Makefile
+	cd $PCRE \\
+	&& \$(MAKE) libpcre2-8.la
+
+END
+
+    fi
+
+
+else
+
+    # PCRE
+
+    case "$NJT_CC_NAME" in
+
+        msvc)
+            njt_makefile=makefile.msvc
+            njt_opt="CPU_OPT=\"$CPU_OPT\" LIBC=$LIBC"
+            njt_pcre="PCRE=\"$PCRE\""
+        ;;
+
+        owc)
+            njt_makefile=makefile.owc
+            njt_opt="CPU_OPT=\"$CPU_OPT\""
+            njt_pcre=`echo PCRE=\"$PCRE\" | sed -e "s/\//$njt_regex_dirsep/g"`
+        ;;
+
+        bcc)
+            njt_makefile=makefile.bcc
+            njt_opt="-DCPU_OPT=\"$CPU_OPT\""
+            njt_pcre=`echo \-DPCRE=\"$PCRE\" \
+                | sed -e "s/\//$njt_regex_dirsep/g"`
+        ;;
+
+        *)
+            njt_makefile=
+        ;;
+
+    esac
+
+
+    if [ -n "$njt_makefile" ]; then
+
+        cat << END                                            >> $NJT_MAKEFILE
+
+`echo "$PCRE/pcre.lib:	$PCRE/pcre.h $NJT_MAKEFILE"			\
+	| sed -e "s/\//$njt_regex_dirsep/g"`
+	\$(MAKE) -f auto/lib/pcre/$njt_makefile $njt_pcre $njt_opt
+
+`echo "$PCRE/pcre.h:" | sed -e "s/\//$njt_regex_dirsep/g"`
+	\$(MAKE) -f auto/lib/pcre/$njt_makefile $njt_pcre pcre.h
+
+END
+
+    else
+
+        cat << END                                            >> $NJT_MAKEFILE
+
+$PCRE/pcre.h:	$PCRE/Makefile
+
+$PCRE/Makefile:	$NJT_MAKEFILE
+	cd $PCRE \\
+	&& if [ -f Makefile ]; then \$(MAKE) distclean; fi \\
+	&& CC="\$(CC)" CFLAGS="$PCRE_OPT" \\
+	./configure --disable-shared $PCRE_CONF_OPT
+
+$PCRE/.libs/libpcre.a:	$PCRE/Makefile
+	cd $PCRE \\
+	&& \$(MAKE) libpcre.la
+
+END
+
+    fi
+
+fi

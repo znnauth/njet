@@ -41,9 +41,6 @@ njt_http_location_create_main_conf(njt_conf_t *cf);
 static njt_int_t
 njt_http_location_init(njt_conf_t *cf);
 
-extern njt_int_t
-njt_http_init_static_location_trees(njt_conf_t *cf,
-                                    njt_http_core_loc_conf_t *pclcf);
 
 extern njt_int_t njt_http_init_locations(njt_conf_t *cf,
                                          njt_http_core_srv_conf_t *cscf, njt_http_core_loc_conf_t *pclcf);
@@ -625,12 +622,19 @@ njt_http_location_read_data(njt_http_request_t *r){
 		p = njt_snprintf(topic_name.data,topic_len,"/dyn/loc/l_%ui",crc32);
 	} else  if(location_info->type.len == add.len && njt_strncmp(location_info->type.data,add.data,location_info->type.len) == 0 ){
 		p = njt_snprintf(topic_name.data,topic_len,"/worker_0/dyn/loc/l_%ui",crc32);
+	} else {
+		njt_str_set(&location_info->msg, "type error!!!");
+		goto err;
 	}
 	topic_name.len = p - topic_name.data;
 	rc = njt_http_location_rpc_send(r,&topic_name,&json_str,0);
 	if(rc == NJT_OK) {
 		++r->main->count;
 	}
+	if(location_info != NULL) {
+                njt_destroy_pool(location_info->pool);
+    }
+
 	njt_log_error(NJT_LOG_DEBUG, r->connection->log, 0, "1 send topic retain_flag=%V, key=%V,value=%V",&location_info->type,&topic_name,&json_str);
 	goto out;
 
@@ -640,7 +644,11 @@ err:
     out.buf = NULL;
      rpc_result = njt_rpc_result_create();
     if(rpc_result == NULL){
+		if(location_info != NULL) {
+                njt_destroy_pool(location_info->pool);
+		}
        njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "rpc_result allocate null");
+       rc = NJT_ERROR;
        goto out;
     }
 	

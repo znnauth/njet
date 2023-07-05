@@ -285,7 +285,7 @@ static njt_int_t njt_dyn_bwlist_update_locs(njt_array_t *locs, njt_queue_t *q, n
                     njt_rpc_result_add_error_data(rpc_result, &rpc_data_str);
                     return NJT_ERROR;
                 }
-                rc = njt_sub_pool(njt_cycle->pool, pool);
+                rc = njt_sub_pool(clcf->pool, pool);
                 if (rc != NJT_OK) {
                     end = njt_snprintf(data_buf, sizeof(data_buf) - 1, " create pool error");
                     rpc_data_str.len = end - data_buf;
@@ -631,6 +631,7 @@ static int njt_dyn_bwlist_change_handler_internal(njt_str_t *key, njt_str_t *val
     rpc_result = njt_rpc_result_create();
     if (!rpc_result) {
         njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "can't create rpc result");
+        rc = NJT_ERROR;
         goto end;
     }
     njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_SUCCESS);
@@ -638,6 +639,7 @@ static int njt_dyn_bwlist_change_handler_internal(njt_str_t *key, njt_str_t *val
     if (pool == NULL) {
         njt_log_error(NJT_LOG_EMERG, pool->log, 0, "njt_dyn_bwlist_change_handler create pool error");
         njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_ERR_MEM_ALLOC);
+        rc = NJT_ERROR;
         goto rpc_msg;
     }
 
@@ -646,14 +648,18 @@ static int njt_dyn_bwlist_change_handler_internal(njt_str_t *key, njt_str_t *val
         njt_log_debug1(NJT_LOG_DEBUG_HTTP, pool->log, 0,
             "could not alloc buffer in function %s", __func__);
         njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_ERR_MEM_ALLOC);
+        rc = NJT_ERROR;
         goto rpc_msg;
     }
 
     rc = njt_json_parse_data(pool, value, njt_http_dyn_bwlist_main_json_dt, api_data);
     if (rc == NJT_OK) {
+        //when json is valid, the following method always return NJT_OK and different msg set to rpc_result
         njt_dyn_bwlist_update_access_conf(pool, api_data, rpc_result);
     }
     else {
+        njt_str_t msg = njt_string("");
+        njt_kv_sendmsg(key,&msg,0);
         njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_ERR_JSON);
         goto rpc_msg;
     }
@@ -669,9 +675,8 @@ end:
     if (rpc_result) {
         njt_rpc_result_destroy(rpc_result);
     }
+    
     return rc;
-
-    return NJT_OK;
 }
 
 static int njt_dyn_bwlist_change_handler(njt_str_t *key, njt_str_t *value, void *data)

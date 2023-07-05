@@ -125,6 +125,7 @@ static int njt_http_split_kv_change_handler_internal(njt_str_t *key, njt_str_t *
     rpc_result = njt_rpc_result_create();
     if (!rpc_result) {
         njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "can't create rpc result");
+        rc = NJT_ERROR;
         goto end;
     }
     njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_SUCCESS);
@@ -132,6 +133,7 @@ static int njt_http_split_kv_change_handler_internal(njt_str_t *key, njt_str_t *
     tmp_pool = njt_create_pool(NJT_DEFAULT_POOL_SIZE, njt_cycle->log);
     if (tmp_pool == NULL) {
         njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_ERR_MEM_ALLOC);
+        rc = NJT_ERROR;
         goto rpc_msg;
     }
 
@@ -239,6 +241,10 @@ static int njt_http_split_kv_change_handler_internal(njt_str_t *key, njt_str_t *
         goto rpc_msg;
     }
 rpc_msg:
+    if (rc != NJT_OK) {
+        njt_str_t msg = njt_string("");
+        njt_kv_sendmsg(key,&msg,0);
+    }
     if (out_msg) {
         njt_rpc_result_to_json_str(rpc_result, out_msg);
     }
@@ -347,9 +353,12 @@ static njt_int_t njt_http_split_client_2_init_worker(njt_cycle_t *cycle)
         return NJT_OK;
     }
     conf_ctx = (njt_http_conf_ctx_t *)njt_get_conf(cycle->conf_ctx, njt_http_module);
+    if (!conf_ctx) {
+        return NJT_OK;
+    }
     sc2cf = conf_ctx->main_conf[njt_http_split_clients_2_module.ctx_index];
 
-    if (!sc2cf->has_split_block) {
+    if (!sc2cf || !sc2cf->has_split_block) {
         return NJT_OK;
     }
 

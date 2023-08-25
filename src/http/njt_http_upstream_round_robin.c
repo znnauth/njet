@@ -561,6 +561,8 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     njt_uint_t                    i, n, p;
     njt_http_upstream_rr_peer_t  *peer,*best;
     njt_int_t                     peer_slow_weight;
+    static njt_uint_t             stat[500];
+    static njt_uint_t             stat_index = 0, stat_total = 0, loop_index = 0;
     now = njt_time();
 
     best = NULL;
@@ -649,6 +651,21 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
         best->checked = now;
     }
     njt_http_upstream_rr_peer_unlock(rrp->peers, best);
+    stat[best->id]++;
+    stat_index++;
+    stat_total++;
+    if(stat_index >= 10000){
+        loop_index++;
+        stat_index = 0;
+        for(i=0; i < 500; i++){
+            float pecent = (stat[i]*1.0) / (stat_total*1.0);
+            njt_uint_t int_pcent = (njt_uint_t)(pecent * 10000);
+            njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0,
+            // "====index:%d  count:%d  ", stat_index, stat[best->id]);
+                "====loop_index:%d peerid:%d  count:%d  total:%d percent:%.5f int_pcent:%d", 
+                loop_index, i, stat[i], stat_total, pecent, int_pcent);
+        }
+    }
     return best;
 }
 

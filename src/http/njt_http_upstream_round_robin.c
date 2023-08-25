@@ -635,7 +635,7 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
 	
     njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "best ip=%V,name=%V,current_weight=%d,effective_weight=%d,peer_slow_weight=%d",&best->server,&best->name,best->current_weight,best->effective_weight,peer_slow_weight);
     ///zyg
-    njt_http_upstream_rr_peer_lock(rrp->peers, peer);
+    njt_http_upstream_rr_peer_lock(rrp->peers, best);
     best->selected_time = ((njt_timeofday())->sec)*1000 + (njt_uint_t)((njt_timeofday())->msec);
     rrp->current = best;
 
@@ -648,7 +648,7 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     if (now - best->checked > best->fail_timeout) {
         best->checked = now;
     }
-    njt_http_upstream_rr_peer_unlock(rrp->peers, peer);
+    njt_http_upstream_rr_peer_unlock(rrp->peers, best);
     return best;
 }
 

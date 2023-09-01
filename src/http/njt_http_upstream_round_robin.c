@@ -466,6 +466,7 @@ njt_http_upstream_get_round_robin_peer(njt_peer_connection_t *pc, void *data)
     njt_uint_t                     i, n;
     njt_http_upstream_rr_peer_t   *peer;
     njt_http_upstream_rr_peers_t  *peers;
+    njt_core_conf_t               *ccf;
 
     njt_log_debug1(NJT_LOG_DEBUG_HTTP, pc->log, 0,
                    "get rr peer, try: %ui", pc->tries);
@@ -474,8 +475,14 @@ njt_http_upstream_get_round_robin_peer(njt_peer_connection_t *pc, void *data)
     pc->connection = NULL;
 
     peers = rrp->peers;
+    ccf = (njt_core_conf_t *)njt_get_conf(njt_cycle->conf_ctx, njt_core_module);
     // njt_http_upstream_rr_peers_wlock(peers);
-    njt_http_upstream_rr_peers_rlock(peers);
+    if(ccf->worker_processes > 1){
+        njt_http_upstream_rr_peers_rlock(peers);
+    }else{
+        njt_http_upstream_rr_peers_wlock(peers);
+    }
+    
     if (peers->single && peers->number != 0) {
         peer = peers->peer;
 	/*
@@ -510,10 +517,14 @@ njt_http_upstream_get_round_robin_peer(njt_peer_connection_t *pc, void *data)
     pc->sockaddr = peer->sockaddr;
     pc->socklen = peer->socklen;
     pc->name = &peer->name;
-    njt_http_upstream_rr_peer_lock(rrp->peers, peer);
+    if(ccf->worker_processes > 1){
+        njt_http_upstream_rr_peer_lock(rrp->peers, peer);
+    }
     peer->conns++;
     peer->requests++;
-    njt_http_upstream_rr_peer_unlock(rrp->peers, peer);
+    if(ccf->worker_processes > 1){
+        njt_http_upstream_rr_peer_unlock(rrp->peers, peer);
+    }
     njt_http_upstream_rr_peers_unlock(peers);
     
     return NJT_OK;
@@ -559,6 +570,7 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     uintptr_t                     m;
     njt_int_t                     total;
     njt_uint_t                    i, n, p;
+    njt_core_conf_t              *ccf;
     njt_http_upstream_rr_peer_t  *peer,*best;
     njt_int_t                     peer_slow_weight;
     static njt_uint_t             stat[500];
@@ -572,6 +584,7 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     p = 0;
 #endif
 
+    ccf = (njt_core_conf_t *)njt_get_conf(njt_cycle->conf_ctx, njt_core_module);
     for (peer = rrp->peers->peer, i = 0;
          peer;
          peer = peer->next, i++)
@@ -601,7 +614,10 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
 	    if(njt_http_upstream_pre_handle_peer(peer) == NJT_ERROR)
                 continue;
 
-        njt_http_upstream_rr_peer_lock(rrp->peers, peer);
+        if(ccf->worker_processes > 1){
+            njt_http_upstream_rr_peer_lock(rrp->peers, peer);
+        }
+        
         peer->current_weight += peer->effective_weight;
         /////zyg/////////////
         peer_slow_weight = peer->weight;
@@ -628,7 +644,9 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
             best = peer;
             p = i;
         }
-        njt_http_upstream_rr_peer_unlock(rrp->peers, peer);
+        if(ccf->worker_processes > 1){
+            njt_http_upstream_rr_peer_unlock(rrp->peers, peer);
+        }
     }
 
     if (best == NULL) {
@@ -637,7 +655,9 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
 	
     njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "best ip=%V,name=%V,current_weight=%d,effective_weight=%d,peer_slow_weight=%d",&best->server,&best->name,best->current_weight,best->effective_weight,peer_slow_weight);
     ///zyg
-    njt_http_upstream_rr_peer_lock(rrp->peers, best);
+    if(ccf->worker_processes > 1){
+        njt_http_upstream_rr_peer_lock(rrp->peers, best);
+    }
     best->selected_time = ((njt_timeofday())->sec)*1000 + (njt_uint_t)((njt_timeofday())->msec);
     rrp->current = best;
 
@@ -650,7 +670,9 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     if (now - best->checked > best->fail_timeout) {
         best->checked = now;
     }
-    njt_http_upstream_rr_peer_unlock(rrp->peers, best);
+    if(ccf->worker_processes > 1){
+        njt_http_upstream_rr_peer_unlock(rrp->peers, best);
+    }
     stat[best->id]++;
     stat_index++;
     stat_total++;

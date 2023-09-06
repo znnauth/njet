@@ -1075,6 +1075,8 @@ njt_core_module_create_conf(njt_cycle_t *cycle)
 
     ccf->daemon = NJT_CONF_UNSET;
     ccf->master = NJT_CONF_UNSET;
+    ccf->privileged_agent = NJT_CONF_UNSET;
+    ccf->privileged_agent_connections = NJT_CONF_UNSET_UINT;
     ccf->timer_resolution = NJT_CONF_UNSET_MSEC;
     ccf->shutdown_timeout = NJT_CONF_UNSET_MSEC;
 
@@ -1104,6 +1106,8 @@ njt_core_module_init_conf(njt_cycle_t *cycle, void *conf)
 
     njt_conf_init_value(ccf->daemon, 1);
     njt_conf_init_value(ccf->master, 1);
+    njt_conf_init_value(ccf->privileged_agent, 0);
+    njt_conf_init_uint_value(ccf->privileged_agent_connections, 512);
     njt_conf_init_msec_value(ccf->timer_resolution, 0);
     njt_conf_init_msec_value(ccf->shutdown_timeout, 0);
 

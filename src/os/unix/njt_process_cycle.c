@@ -2079,7 +2079,6 @@ njt_privileged_agent_process_cycle(njt_cycle_t *cycle, void *data)
     njt_close_listening_sockets(cycle);
 
     /* Set a moderate number of connections for a helper process. */
-    cycle->connection_n = 512;
     cycle->connection_n = ccf->privileged_agent_connections;
     njt_worker_process_init(cycle, -1);
 

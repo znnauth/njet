@@ -583,7 +583,7 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     njt_core_conf_t              *ccf;
     njt_http_upstream_rr_peer_t  *peer,*best;
     njt_int_t                     peer_slow_weight;
-    static njt_uint_t             stat[500];
+    static njt_uint_t             stat[1500];
     static njt_uint_t             stat_index = 0, stat_total = 0, loop_index = 0;
     now = njt_time();
 
@@ -691,7 +691,7 @@ njt_http_upstream_get_peer(njt_http_upstream_rr_peer_data_t *rrp)
     if(stat_index >= 10000){
         loop_index++;
         stat_index = 0;
-        for(i=0; i < 500; i++){
+        for(i=0; i < 1500; i++){
             float pecent = (stat[i]*1.0) / (stat_total*1.0);
             njt_uint_t int_pcent = (njt_uint_t)(pecent * 10000);
             njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0,

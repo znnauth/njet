@@ -30,6 +30,7 @@ NJET_MODULES="$NJET_MODULES --add-module=./modules/njet-vts-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-vtsc-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-vtsd-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-helper-ctrl-module"
+NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-helper-privilege-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-helper-broker-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-helper-ha-module"
 NJET_MODULES="$NJET_MODULES --add-module=./modules/njet-http-kv-module"
@@ -57,6 +58,10 @@ NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-http-dyn-fault-i
 NJET_MODULES="$NJET_MODULES --add-module=./modules/njet-jwt-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-sysguard-cpu-module"
 NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-http-register-module"
+NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-range-module"
+NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-http-dyn-range-module"
+NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-http-range-api-module"
+NJET_MODULES="$NJET_MODULES --add-dynamic-module=./modules/njet-stream-ftp-proxy-module"
 PATH_INFO=" --conf-path=/etc/njet/njet.conf   --prefix=$tgtdir --sbin-path=$tgbindir --modules-path=$modulesdir "
 LIB_SRC_PATH=" --with-openssl=auto/lib/tongsuo "
 # LIB_SRC_PATH=" --with-openssl=auto/lib/tongsuo"
@@ -118,6 +123,7 @@ cdir=`cd $(dirname $0); pwd`
 		    cp -fr lualib /etc/njet/lualib
                 fi
                 cd auto/lib/keepalived; make install; cd -;
+                cd auto/lib/luapkg; make install; cd -;
                 make install
 		mkdir /etc/njet/data
 		chmod 777 -R /etc/njet/data  /etc/njet/logs
@@ -125,6 +131,7 @@ cdir=`cd $(dirname $0); pwd`
             clean)
                 rm -rf auto/lib/njetmq/build
                 rm auto/lib/keepalived/Makefile
+		cd auto/lib/luapkg; make clean; cd -;
                 make clean
                 ;;
             release)

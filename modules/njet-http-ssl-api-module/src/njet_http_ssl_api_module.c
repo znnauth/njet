@@ -459,7 +459,7 @@ njt_http_dyn_ssl_handler(njt_http_request_t *r) {
     njt_str_null(&msg);
     njt_str_t srv_err = njt_string("{\"code\":500,\"msg\":\"server error\"}");
     // njt_str_t not_found_err = njt_string("{\"code\":404,\"msg\":\"not found error\"}");
-    // njt_str_t rpc_pre = njt_string("/rpc/");
+    // njt_str_t rpc_pre = njt_string("/worker_a/rpc/");
     // path = njt_array_create( r->pool, 4, sizeof(njt_str_t));
     // if (path == NULL) {
     //     njt_log_error(NJT_LOG_ERR, r->connection->log, 0,"array init of path error.");
@@ -491,7 +491,7 @@ njt_http_dyn_ssl_handler(njt_http_request_t *r) {
     if(r->method == NJT_HTTP_GET){
         njt_str_t smsg = njt_string("{\"method\":\"GET\"}");
         // njt_str_concat(r->pool,topic, rpc_pre, uri[0], goto err);
-        njt_str_set(&topic, "/rpc/ssl");
+        njt_str_set(&topic, "/worker_a/rpc/ssl");
 
         rc = njt_http_dyn_ssl_rpc_send(r, &topic, &smsg, 0);
         if(rc != NJT_OK){
@@ -662,7 +662,7 @@ njt_http_dyn_ssl_read_data(njt_http_request_t *r){
 
     pool = njt_create_pool(njt_pagesize,njt_cycle->log);
     if(pool == NULL){
-        njt_log_error(NJT_LOG_EMERG, pool->log, 0, "njt_http_ssl_change_handler create pool error");
+        njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "njt_http_ssl_change_handler create pool error");
         njt_rpc_result_set_code(rpc_result, NJT_RPC_RSP_ERR_MEM_ALLOC);
         njt_rpc_result_set_msg(rpc_result, (u_char *)" update handler create pool error");
         rc = NJT_ERROR;
@@ -749,8 +749,8 @@ njt_http_dyn_ssl_read_data(njt_http_request_t *r){
 
         goto out;
 	} else {
-		// p = njt_snprintf(topic_name.data,topic_len,"/worker_0/ins/ssl/l_%ui",crc32);
-        p = njt_snprintf(topic_name.data,topic_len,"/worker_0/ins/ssl/l_%ui",crc32);
+		// p = njt_snprintf(topic_name.data,topic_len,"/worker_a/ins/ssl/l_%ui",crc32);
+        p = njt_snprintf(topic_name.data,topic_len,"/worker_a/ins/ssl/l_%ui",crc32);
 	}
 
 	topic_name.len = p - topic_name.data;

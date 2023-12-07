@@ -23,7 +23,6 @@ static void njt_start_cache_manager_processes(njt_cycle_t *cycle,
     njt_uint_t respawn);
 static void njt_start_privileged_agent_processes(njt_cycle_t *cycle,
     njt_uint_t respawn);
-
 static njt_uint_t njt_start_helper_processes(njt_cycle_t *cycle,
     njt_uint_t respawn);
 static njt_uint_t njt_restart_helper_processes(njt_cycle_t *cycle,
@@ -78,8 +77,9 @@ njt_uint_t    njt_daemonized;
 sig_atomic_t  njt_noaccept;
 njt_uint_t    njt_noaccepting;
 njt_uint_t    njt_restart;
-njt_uint_t    njt_is_privileged_agent;
 
+njt_uint_t    njt_is_privileged_agent = 0;
+njt_uint_t    njt_master_listening_count = 0;
 njt_uint_t    njt_is_privileged_helper = 0;
 
 
@@ -275,7 +275,7 @@ njt_master_process_cycle(njt_cycle_t *cycle)
                 njt_start_worker_processes(cycle, ccf->worker_processes,
                     NJT_PROCESS_RESPAWN);
                 njt_start_cache_manager_processes(cycle, 0);
-		njt_start_privileged_agent_processes(cycle, 0);
+                njt_start_privileged_agent_processes(cycle, 0);
                 njt_noaccepting = 0;
 
                 //add by clb
@@ -306,7 +306,7 @@ njt_master_process_cycle(njt_cycle_t *cycle)
             njt_start_worker_processes(cycle, ccf->worker_processes,
                 NJT_PROCESS_JUST_RESPAWN);
             njt_start_cache_manager_processes(cycle, 1);
-		njt_start_privileged_agent_processes(cycle, 1);
+            njt_start_privileged_agent_processes(cycle, 1);
 
             /* allow new processes to start */
             njt_msleep(100);
@@ -330,7 +330,7 @@ njt_master_process_cycle(njt_cycle_t *cycle)
             njt_start_worker_processes(cycle, ccf->worker_processes,
                 NJT_PROCESS_RESPAWN);
             njt_start_cache_manager_processes(cycle, 0);
-	    njt_start_privileged_agent_processes(cycle, 0);
+            njt_start_privileged_agent_processes(cycle, 0);
             live = 1;
 
             //add by clb
@@ -970,7 +970,7 @@ njt_restart_helper_processes(njt_cycle_t *cycle, njt_uint_t respawn)
 }
 
 
- static void
+static void
 njt_start_privileged_agent_processes(njt_cycle_t *cycle, njt_uint_t respawn)
 {
     njt_core_conf_t       *ccf;
@@ -1704,6 +1704,12 @@ njt_worker_process_init(njt_cycle_t *cycle, njt_int_t worker)
         }
     }
 
+    //for privileged agent, all listening sockets were closed
+    //restore lisening.nelts for dynamic configuration
+    if (njt_is_privileged_agent) {
+        cycle->listening.nelts = njt_master_listening_count;
+    }
+
     for (n = 0; n < njt_last_process; n++) {
 
         if (njt_processes[n].pid == -1) {
@@ -1944,7 +1950,10 @@ njt_worker_process_exit(njt_cycle_t *cycle)
 {
     njt_uint_t         i;
     njt_connection_t *c;
-
+#if (NJT_DEBUG)
+    njt_event_t              *read_events;
+    njt_event_t              *write_events;
+#endif
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->exit_process) {
             cycle->modules[i]->exit_process(cycle);
@@ -1963,6 +1972,11 @@ njt_worker_process_exit(njt_cycle_t *cycle)
                     "*%uA open socket #%d left in connection %ui",
                     c[i].number, c[i].fd, i);
                 njt_debug_quit = 1;
+	    #if (NJT_DEBUG)
+	    	if(c[i].pool != NULL) {
+                        njt_destroy_pool(c[i].pool);
+                }
+	    #endif
             }
         }
 
@@ -1991,9 +2005,24 @@ njt_worker_process_exit(njt_cycle_t *cycle)
     njt_exit_cycle.files_n = njt_cycle->files_n;
     njt_cycle = &njt_exit_cycle;
 
+    njt_log_error(NJT_LOG_NOTICE, njt_cycle->log, 0, "exit");
+#if (NJT_DEBUG)
+    read_events = cycle->read_events;
+    write_events = cycle->write_events;
+    c = cycle->connections;
+#endif
+
     njt_destroy_pool(cycle->pool);
 
-    njt_log_error(NJT_LOG_NOTICE, njt_cycle->log, 0, "exit");
+#if (NJT_DEBUG)
+    if(c != NULL)
+        njt_free(c);
+    if(read_events != NULL)
+        njt_free(read_events);
+    if(write_events != NULL)
+        njt_free(write_events);
+#endif
+
 
     exit(0);
 }
@@ -2004,7 +2033,9 @@ njt_helper_process_exit(njt_cycle_t *cycle)
 {
     njt_uint_t         i;
 #if (NJT_DEBUG)
-    njt_connection_t    **c;
+    njt_connection_t    *c;
+    njt_event_t              *read_events;
+    njt_event_t              *write_events;
 #endif
     for (i = 0; cycle->modules[i]; i++) {
         if (cycle->modules[i]->exit_process) {
@@ -2032,29 +2063,34 @@ njt_helper_process_exit(njt_cycle_t *cycle)
     njt_exit_cycle.files = njt_cycle->files;
     njt_exit_cycle.files_n = njt_cycle->files_n;
     njt_cycle = &njt_exit_cycle;
-#if (NJT_DEBUG)
-     c = cycle->files;
-    if(cycle->files) {
-        i = cycle->files_n;
-        do {
-                i--;
-                if(c[i]->pool != NULL) {
-                        njt_destroy_pool(c[i]->pool);
-                }
-
-        } while (i);
-    }
-
-    if(cycle->connections)
-        njt_free(cycle->connections);
-    if(cycle->read_events)
-        njt_free(cycle->read_events);
-    if(cycle->write_events)
-        njt_free(cycle->write_events);
-#endif
-    njt_destroy_pool(cycle->pool);
 
     njt_log_error(NJT_LOG_NOTICE, njt_cycle->log, 0, "exit");
+#if (NJT_DEBUG)
+    	read_events = cycle->read_events;
+	write_events = cycle->write_events;
+        c = cycle->connections;
+        for (i = 0; i < cycle->connection_n; i++) {
+		if (c[i].fd != -1
+                && c[i].read
+                && !c[i].read->accept
+                && !c[i].read->channel
+                && !c[i].read->resolver) {
+                        njt_destroy_pool(c[i].pool);
+                }
+        }
+#endif
+
+    njt_destroy_pool(cycle->pool);
+
+#if (NJT_DEBUG)
+    if(c != NULL)
+        njt_free(c);
+    if(read_events != NULL)
+        njt_free(read_events);
+    if(write_events != NULL)
+        njt_free(write_events);
+#endif
+
 
     exit(0);
 }
@@ -2199,7 +2235,7 @@ njt_cache_manager_process_cycle(njt_cycle_t *cycle, void *data)
 }
 
 
- static void
+static void
 njt_privileged_agent_process_cycle(njt_cycle_t *cycle, void *data)
 {
     char   *name = data;
@@ -2211,6 +2247,7 @@ njt_privileged_agent_process_cycle(njt_cycle_t *cycle, void *data)
     njt_core_conf_t *ccf = (njt_core_conf_t *) njt_get_conf(cycle->conf_ctx, njt_core_module);
     njt_process = NJT_PROCESS_HELPER;
     njt_is_privileged_agent = 1;
+    njt_master_listening_count = cycle->listening.nelts;
 
     njt_close_listening_sockets(cycle);
 
@@ -2238,6 +2275,8 @@ njt_privileged_agent_process_cycle(njt_cycle_t *cycle, void *data)
         njt_process_events_and_timers(cycle);
     }
 }
+
+
 
 static void
 njt_cache_manager_process_handler(njt_event_t *ev)

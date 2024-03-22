@@ -189,7 +189,7 @@ static njt_int_t njt_http_add_server_handler(njt_http_dyn_server_info_t *server_
 	njt_http_core_srv_conf_t *cscf;
 	//njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "add server start +++++++++++++++");
 	if(server_info->buffer.len == 0 || server_info->buffer.data == NULL) {
-	   njt_log_error(NJT_LOG_DEBUG,njt_cycle->pool->log, 0, "buffer null");
+	   njt_log_error(NJT_LOG_ERR,njt_cycle->pool->log, 0, "buffer null");
 	   njt_str_set(&server_info->msg,"error:buffer null!");
 	   return NJT_ERROR;
 	}
@@ -205,13 +205,13 @@ static njt_int_t njt_http_add_server_handler(njt_http_dyn_server_info_t *server_
 		p = njt_snprintf(server_info->buffer.data,server_info->buffer.len,"error:[%V] server[%V] exist!",&server_info->addr_port,&server_info->server_name);
 		server_info->msg = server_info->buffer;	
 		server_info->msg.len = p - server_info->buffer.data;	    
-		njt_log_error(NJT_LOG_DEBUG,njt_cycle->pool->log, 0, "%V",&server_info->msg);
+		njt_log_error(NJT_LOG_ERR,njt_cycle->pool->log, 0, "%V",&server_info->msg);
 		return NJT_ERROR;
 	} 
 
 
 	if (server_path.len == 0) {
-		//njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add server error:server_path=0");
+		njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add server error:server_path=0");
 		njt_str_set(&server_info->msg,"add server error:server_path=0");
 		rc = NJT_ERROR;
 		goto out;
@@ -219,7 +219,7 @@ static njt_int_t njt_http_add_server_handler(njt_http_dyn_server_info_t *server_
 
 
 	if (rc == NJT_ERROR || rc > NJT_OK) {
-		//njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add server error!");
+		njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add server error!");
 		njt_str_set(&server_info->msg,"add server error!");
 		rc = NJT_ERROR;
 		goto out;
@@ -230,7 +230,7 @@ static njt_int_t njt_http_add_server_handler(njt_http_dyn_server_info_t *server_
 	conf.args = njt_array_create(server_info->pool, 10, sizeof(njt_str_t));
 	if (conf.args == NULL) {
 		njt_str_set(&server_info->msg,"add server njt_array_create error!");
-		//njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add  server[%V] error:args allocate fail!",&server_name);
+		njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add  server[%V] error:args allocate fail!",&server_name);
 		rc = NJT_ERROR;
 		goto out;
 	}
@@ -260,10 +260,10 @@ static njt_int_t njt_http_add_server_handler(njt_http_dyn_server_info_t *server_
 	njt_conf_check_cmd_handler = njt_http_check_server_body;
 	rv = njt_conf_parse(&conf, &server_path);
 	if (rv != NULL) {
-		 if(server_info->msg.len == NJT_MAX_CONF_ERRSTR && server_info->msg.data[0] == '\0') {
+	    if(server_info->msg.len == NJT_MAX_CONF_ERRSTR && server_info->msg.data[0] == '\0') {
 	    	njt_str_set(&server_info->msg,"njt_conf_parse error!");
 	    } else if(server_info->msg.len != NJT_MAX_CONF_ERRSTR) {
-	    	njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "njt_conf_parse  location[%V] error:%V",&server_name,&server_info->msg);
+	    	njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "njt_conf_parse  server[%V] error:%V",&server_name,&server_info->msg);
 	    }
 
 		rc = NJT_ERROR;
@@ -374,7 +374,7 @@ static int njt_agent_server_change_handler_internal(njt_str_t *key, njt_str_t *v
 
 	server_info = njt_http_parser_server_data(*value,0);
 	if(server_info == NULL) {
-		njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "topic msg error key=%V,value=%V",key,value);
+		njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "topic msg error key=%V,value=%V",key,value);
 		return NJT_ERROR;
 	}
 	rpc_result = njt_rpc_result_create();
@@ -395,15 +395,17 @@ static int njt_agent_server_change_handler_internal(njt_str_t *key, njt_str_t *v
 					//njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add topic_kv_change_handler error key=%V,value=%V",key,value);
 					njt_kv_sendmsg(key,&del_topic,0);
 				}
-				njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "add topic_kv_change_handler error key=%V,value=%V",key,value);
+				njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "add topic_kv_change_handler error key=%V,value=%V",key,value);
 			} else {
 				if(key->len > worker_str.len && njt_strncmp(key->data,worker_str.data,worker_str.len) == 0) {
 					new_key.data = key->data + worker_str.len;
 					new_key.len  = key->len - worker_str.len;
 					njt_kv_sendmsg(&new_key,value,1);
 				}
-				//njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "add topic_kv_change_handler succ key=%V,value=%V",key,value);
+				njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "add topic_kv_change_handler succ key=%V,value=%V",key,value);
 			}
+		} else {
+			njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "write_data add topic_kv_change_handler error key=%V,value=%V",key,value);
 		}
 	} else if(server_info->type.len == del.len && njt_strncmp(server_info->type.data,del.data,server_info->type.len) == 0 ){
 		rc = njt_http_dyn_server_write_data(server_info);
@@ -415,8 +417,11 @@ static int njt_agent_server_change_handler_internal(njt_str_t *key, njt_str_t *v
 					new_key.len  = key->len - worker_str.len;
 					njt_kv_sendmsg(&new_key,value,0);
 				}
+				njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "delete topic_kv_change_handler key=%V,value=%V",key,value);
 			}
-			njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "delete topic_kv_change_handler key=%V,value=%V",key,value);
+		}
+		if (rc != NJT_OK) {
+			njt_log_error(NJT_LOG_ERR, njt_cycle->log, 0, "write_data delete topic_kv_change_handler key=%V,value=%V",key,value);
 		}
 	}
 	if(rc == NJT_OK) {
@@ -623,9 +628,9 @@ njt_http_dyn_server_info_t * njt_http_parser_server_data(njt_str_t json_str,njt_
 			njt_str_set(&server_info->msg, "server_name error!");
 			goto end;
 		}
-		server_info->old_server_name = njt_del_headtail_space(items->strval);
-		njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "server_name[%V,%V]",&items->strval,&server_info->old_server_name);
-		if(server_info->old_server_name.len == 0) {
+		server_info->server_name = njt_del_headtail_space(items->strval);
+		njt_log_error(NJT_LOG_DEBUG, njt_cycle->log, 0, "server_name[%V,%V]",&items->strval,&server_info->server_name);
+		if(server_info->server_name.len == 0) {
 			njt_str_set(&server_info->msg, "server_name is null!");
 			goto end;
 		}
@@ -740,7 +745,8 @@ static njt_int_t njt_http_dyn_server_write_data(njt_http_dyn_server_info_t *serv
 	njt_str_t server_file = njt_string("add_server.txt");
 	njt_str_t server_path;
 	njt_str_t server_full_file;
-	
+
+	server_info->old_server_name = server_info->server_name;
 	server_info->server_name = njt_get_command_unique_name(server_info->pool,server_info->old_server_name);
 	cscf = njt_http_get_srv_by_port((njt_cycle_t  *)njt_cycle,&server_info->addr_port,&server_info->old_server_name);	
 	(*server_info).cscf = cscf;

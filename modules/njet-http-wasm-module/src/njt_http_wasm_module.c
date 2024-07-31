@@ -287,8 +287,12 @@ static char *loop_headers(njt_http_request_t *r)
     strcat(res, (char *)(char *)host.data);
     strcat(res, "\"");
 
-    njt_str_t connection = r->headers_in.connection->value;
-    add_obj_to_json(res, "connection", (char *)(char *)connection.data);
+    if (r->headers_in.connection)
+    {
+        njt_str_t connection = r->headers_in.connection->value;
+        add_obj_to_json(res, "connection", (char *)(char *)connection.data);
+    }
+    
     if (r->headers_in.authorization)
     {
         njt_str_t authorization = r->headers_in.authorization->value;

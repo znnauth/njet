@@ -1854,18 +1854,15 @@ EXT_RETURN tls_construct_stoc_enc_key_share(SSL *s, WPACKET *pkt, unsigned int c
     unsigned char *encodedPoint;
     size_t encoded_pt_len = 0;
     EVP_PKEY *skey = NULL;
+    EVP_PKEY *enc_key = NULL;
+    EC_KEY *ec = NULL;
     CERT_PKEY *k_cpk = s->s3->tmp.enc_cert;
     unsigned int curve_id = TLSEXT_curve_SM2;
 
     if (!s->enable_tls13_sm_ecdh || k_cpk == NULL || k_cpk->privatekey == NULL)
         return EXT_RETURN_NOT_SENT;
-    
-    skey = ssl_generate_pkey_group(s, curve_id);
-    if (skey == NULL) {
-        SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_STOC_ENC_KEY_SHARE,
-                 ERR_R_MALLOC_FAILURE);
-        return EXT_RETURN_FAIL;
-    }
+
+    enc_key = k_cpk->privatekey;
 
     if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_enc_key_share)
             || !WPACKET_start_sub_packet_u16(pkt)
@@ -1875,8 +1872,7 @@ EXT_RETURN tls_construct_stoc_enc_key_share(SSL *s, WPACKET *pkt, unsigned int c
         return EXT_RETURN_FAIL;
     }
 
-    /* Generate encoding of server key */
-    encoded_pt_len = EVP_PKEY_get1_tls_encodedpoint(skey, &encodedPoint);
+    encoded_pt_len = EVP_PKEY_get1_tls_encodedpoint(enc_key, &encodedPoint);
     if (encoded_pt_len == 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_STOC_ENC_KEY_SHARE,
                  ERR_R_EC_LIB);
@@ -1888,6 +1884,20 @@ EXT_RETURN tls_construct_stoc_enc_key_share(SSL *s, WPACKET *pkt, unsigned int c
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_STOC_ENC_KEY_SHARE,
                  ERR_R_INTERNAL_ERROR);
         OPENSSL_free(encodedPoint);
+        return EXT_RETURN_FAIL;
+    }
+
+    skey = ssl_generate_param_group(curve_id);
+    if (skey == NULL) {
+        SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_STOC_ENC_KEY_SHARE,
+                 ERR_R_MALLOC_FAILURE);
+        return EXT_RETURN_FAIL;
+    }
+
+    ec = EVP_PKEY_get1_EC_KEY(enc_key);
+    if (ec == NULL || EVP_PKEY_assign_EC_KEY(skey, ec) == 0) {
+        SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_STOC_ENC_KEY_SHARE,
+                 ERR_R_INTERNAL_ERROR);
         return EXT_RETURN_FAIL;
     }
 

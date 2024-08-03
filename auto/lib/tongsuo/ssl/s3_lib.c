@@ -3254,7 +3254,7 @@ void ssl3_free(SSL *s)
     s->s3->peer_tmp_snd = NULL;
     EVP_PKEY_free(s->s3->tmp.pkey);
     s->s3->tmp.pkey = NULL;
-	/* add by hlyan for tls1.3 sm2ecdh */
+    /* add by hlyan for tls1.3 sm2ecdh */
     EVP_PKEY_free(s->s3->tmp.snd_pkey);
     s->s3->tmp.snd_pkey = NULL;
 #endif

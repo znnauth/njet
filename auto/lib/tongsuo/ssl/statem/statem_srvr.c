@@ -2444,6 +2444,8 @@ int tls_handle_alpn(SSL *s)
 WORK_STATE tls_post_process_client_hello(SSL *s, WORK_STATE wst)
 {
     const SSL_CIPHER *cipher;
+    /* add by hlyan for tls1.3 sm2ecdh */
+    unsigned long alg_k = 0;
 
     if (wst == WORK_MORE_A) {
         int rv = tls_early_post_process_client_hello(s);
@@ -2490,11 +2492,21 @@ WORK_STATE tls_post_process_client_hello(SSL *s, WORK_STATE wst)
                 }
                 s->s3->tmp.new_cipher = cipher;
             }
-            if (!s->hit) {
+
+            /* add by hlyan for tls1.3 sm2ecdh */
+            alg_k = s->s3->tmp.new_cipher->algorithm_mkey;
+            if (alg_k & SSL_kSM2DHE) {
+                if (!tls_choose_sigalg_ntls(s, 1)) {
+                    /* SSLfatal already called */
+                    goto err;
+                }
+            }
+            else if (!s->hit) {               
                 if (!tls_choose_sigalg(s, 1)) {
                     /* SSLfatal already called */
                     goto err;
                 }
+
                 /* check whether we should disable session resumption */
                 if (s->not_resumable_session_cb != NULL)
                     s->session->not_resumable =
@@ -2504,7 +2516,7 @@ WORK_STATE tls_post_process_client_hello(SSL *s, WORK_STATE wst)
                 if (s->session->not_resumable)
                     /* do not send a session ticket */
                     s->ext.ticket_expected = 0;
-            }
+            }           
         } else {
             /* Session-id reuse */
             s->s3->tmp.new_cipher = s->session->cipher;

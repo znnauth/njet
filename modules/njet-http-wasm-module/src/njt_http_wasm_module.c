@@ -23,10 +23,10 @@
 #include <netdb.h>
 #include <netinet/in.h>
 
+#include <wasmedge/wasmedge.h>
+
 static void
 njt_http_wasm_read_data(njt_http_request_t *r);
-static njt_str_t
-send_and_recv_data(char *message, njt_http_request_t *r);
 
 static njt_int_t
 njt_http_wasm_handler(njt_http_request_t *r);
@@ -48,6 +48,8 @@ njt_http_wasm_init(njt_conf_t *cf);
 
 static char *
 njt_http_wasm_plugin(njt_conf_t *cf, njt_command_t *cmd, void *conf);
+
+uint32_t ptr_offset = 10240;
 
 static njt_command_t njt_http_wasm_commands[] = {
     {njt_string("wasm_plugin"),
@@ -151,6 +153,8 @@ njt_http_wasm_create_loc_conf(njt_conf_t *cf)
     uclcf->runtime.data = NULL;
     uclcf->plugin_path.len = 0;
     uclcf->plugin_path.data = NULL;
+    uclcf->memory = NULL;
+    uclcf->vm = NULL;
     return uclcf;
 }
 
@@ -177,6 +181,60 @@ static char *njt_http_wasm_merge_loc_conf(njt_conf_t *cf,
     njt_conf_merge_value(conf->wasm_enable, prev->wasm_enable, 0);
     njt_conf_merge_str_value(conf->runtime, prev->runtime, "");
     njt_conf_merge_str_value(conf->plugin_path, prev->plugin_path, "");
+
+    if (true)
+    // if (conf->plugin_path.data != NULL)
+    {
+        WasmEdge_ConfigureContext *ConfCxt = WasmEdge_ConfigureCreate();
+        WasmEdge_ConfigureAddHostRegistration(ConfCxt, WasmEdge_HostRegistration_Wasi);
+
+        conf->vm = WasmEdge_VMCreate(ConfCxt, NULL);
+        WasmEdge_VMContext *VMCxt = conf->vm;
+        WasmEdge_ConfigureDelete(ConfCxt);
+
+        WasmEdge_ModuleInstanceContext *WasiCxt =
+            WasmEdge_VMGetImportModuleContext(VMCxt, WasmEdge_HostRegistration_Wasi);
+        WasmEdge_ModuleInstanceInitWASI(WasiCxt, NULL, 0, NULL, 3, NULL, 0);
+
+        WasmEdge_Result Res;
+
+        // Res = WasmEdge_VMLoadWasmFromFile(VMCxt, (const char *)conf->plugin_path.data);
+        Res = WasmEdge_VMLoadWasmFromFile(VMCxt, "/root/wasmedgedemo/wasm_hello/target/"
+                                                 "wasm32-wasi/release/wasm_hello.wasm");
+        if (!WasmEdge_ResultOK(Res))
+        {
+            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Load WASM failed. Error message: %s\n",
+                          WasmEdge_ResultGetMessage(Res));
+            return NJT_CONF_ERROR;
+        }
+        Res = WasmEdge_VMValidate(VMCxt);
+
+        if (!WasmEdge_ResultOK(Res))
+        {
+            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Validate WASM failed. Error message: %s\n",
+                          WasmEdge_ResultGetMessage(Res));
+            return NJT_CONF_ERROR;
+        }
+        Res = WasmEdge_VMInstantiate(VMCxt);
+
+        if (!WasmEdge_ResultOK(Res))
+        {
+            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Instantiate WASM failed. Error message: %s\n",
+                          WasmEdge_ResultGetMessage(Res));
+            return NJT_CONF_ERROR;
+        }
+
+        const WasmEdge_ModuleInstanceContext *mod_inst = WasmEdge_VMGetActiveModule(VMCxt);
+        WasmEdge_MemoryInstanceContext *memory = WasmEdge_ModuleInstanceFindMemory(mod_inst, WasmEdge_StringCreateByCString("memory"));
+        if (!memory)
+        {
+            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Failed to find memory instance.",
+                          WasmEdge_ResultGetMessage(Res));
+            return NJT_CONF_ERROR;
+        }
+        conf->memory = memory;
+    }
+
     return NJT_CONF_OK;
 }
 
@@ -240,7 +298,7 @@ static int njt_http_wasm_request_output(njt_http_request_t *r, njt_int_t code, n
     r->headers_out.content_length_n = 0;
     if (msg != NULL && msg->len > 0)
     {
-        njt_str_t type = njt_string("application/json");
+        njt_str_t type = njt_string("text/plain");
         r->headers_out.content_type = type;
         r->headers_out.content_length_n = msg->len;
     }
@@ -278,7 +336,6 @@ static void add_obj_to_json(char *str, char *key, char *value)
 
 static char *loop_headers(njt_http_request_t *r)
 {
-
     char *res = njt_palloc(r->pool, 1000);
     strcat(res, "{\"headers\": ");
     njt_str_t host = r->headers_in.host->value;
@@ -286,13 +343,12 @@ static char *loop_headers(njt_http_request_t *r)
 
     strcat(res, (char *)(char *)host.data);
     strcat(res, "\"");
-
     if (r->headers_in.connection)
     {
         njt_str_t connection = r->headers_in.connection->value;
         add_obj_to_json(res, "connection", (char *)(char *)connection.data);
     }
-    
+
     if (r->headers_in.authorization)
     {
         njt_str_t authorization = r->headers_in.authorization->value;
@@ -305,111 +361,60 @@ static char *loop_headers(njt_http_request_t *r)
 static void
 njt_http_wasm_read_data(njt_http_request_t *r)
 {
-
+    njt_http_wasm_loc_conf_t *wasm_clcf = njt_http_get_module_loc_conf(r, njt_http_wasm_module);
     njt_str_t response_data = njt_string("wasm world!");
     njt_str_t no_json_body = njt_string("no body content");
-    njt_str_t json_str;
-    njt_int_t rc = njt_http_util_read_request_body(r, &json_str, 2, 5242880);
+    njt_str_t json_body;
+    njt_int_t rc = njt_http_util_read_request_body(r, &json_body, 2, 5242880);
     if (rc != NJT_OK)
     {
-        json_str = no_json_body;
+        json_body = no_json_body;
     }
 
-    if (rc == NJT_OK)
+    char *request_str = loop_headers(r);
+
+    strcat(request_str, ",\"body\": ");
+    strcat(request_str, (char *)(char *)json_body.data);
+    strcat(request_str, "}");
+
+    const char *input = request_str;
+    size_t input_len = strlen(input);
+    WasmEdge_Result Res;
+
+    WasmEdge_MemoryInstanceContext *memory = wasm_clcf->memory;
+    WasmEdge_VMContext *vm = wasm_clcf->vm;
+
+    WasmEdge_MemoryInstanceSetData(memory, (const uint8_t *)input, ptr_offset, input_len);
+
+    WasmEdge_Value Params[2] = {WasmEdge_ValueGenI32(ptr_offset),
+                                WasmEdge_ValueGenI32(input_len)};
+
+    WasmEdge_Value Returns[1] = {};
+    WasmEdge_String FuncName = WasmEdge_StringCreateByCString((char *)wasm_clcf->runtime.data);
+    Res = WasmEdge_VMExecute(vm, FuncName, Params, 2, Returns, 1);
+    if (!WasmEdge_ResultOK(Res))
     {
-        response_data = json_str;
+        njt_str_t err = njt_string("wasm execute error!");
+        rc = njt_http_wasm_request_output(r, NJT_HTTP_OK, &err);
+        njt_http_finalize_request(r, rc);
+        return;
     }
 
-    char *headerStr = loop_headers(r);
+    uint32_t ptr = WasmEdge_ValueGetI32(Returns[0]);
 
-    strcat(headerStr, ",\"body\": ");
-    strcat(headerStr, (char *)(char *)json_str.data);
-    strcat(headerStr, "}");
+    uint32_t *data = (uint32_t *)WasmEdge_MemoryInstanceGetPointer(memory, ptr, 2 * sizeof(uint32_t));
 
-    njt_str_t res = send_and_recv_data(headerStr, r);
+    uint32_t str_ptr = data[0];
+    uint32_t str_len = data[1];
 
-    response_data = res;
+    u_char *c_string = (u_char *)WasmEdge_MemoryInstanceGetPointer(memory, str_ptr, str_len);
+
+    njt_str_t tmp_str;
+    tmp_str.data = c_string;
+    tmp_str.len = str_len;
+
+    response_data = tmp_str;
     rc = njt_http_wasm_request_output(r, NJT_HTTP_OK, &response_data);
     njt_http_finalize_request(r, rc);
     return;
-}
-
-static njt_str_t send_and_recv_data(char *message, njt_http_request_t *r)
-{
-    FILE *fp;
-    njt_http_wasm_loc_conf_t *wasm_clcf;
-    wasm_clcf = njt_http_get_module_loc_conf(r, njt_http_wasm_module);
-
-    size_t total_len;
-    char *command;
-
-    total_len = wasm_clcf->runtime.len + 1 + wasm_clcf->plugin_path.len + 2 + njt_strlen(message) + 2;
-    command = njt_palloc(r->pool, total_len);
-    njt_snprintf((u_char *)command, total_len, "%V %V '%s'", &wasm_clcf->runtime, &wasm_clcf->plugin_path, message);
-
-    fp = popen(command, "r");
-    if (fp == NULL)
-    {
-        printf("Failed to run command\n");
-        exit(1);
-    }
-
-    njt_str_t res = njt_string("error: read wasm excute result error, nread != 1");
-    int nread;
-    u_char get_buf[10240];
-
-    nread = read(fileno(fp), get_buf, 10240);
-    u_char *tmp_point, *data_point, *last_point, *first_point;
-    njt_str_t tmp_str;
-
-    if (nread > 1)
-    {
-        data_point = &get_buf[0];
-        tmp_point = data_point + nread - 1;
-        while (tmp_point > data_point)
-        {
-            if (*tmp_point != '\n')
-            {
-                break;
-            }
-
-            last_point = tmp_point;
-            tmp_point--;
-            if (tmp_point == data_point)
-            {
-                first_point = tmp_point;
-                tmp_str.data = first_point;
-                tmp_str.len = last_point - first_point;
-                break;
-            }
-
-            while (tmp_point > data_point)
-            {
-                if (*tmp_point == '\n')
-                {
-                    break;
-                }
-
-                tmp_point--;
-            }
-            if (tmp_point == data_point)
-            {
-                first_point = data_point;
-                tmp_str.data = first_point;
-                tmp_str.len = last_point - first_point;
-                break;
-            }
-            else
-            {
-                first_point = tmp_point + 1;
-                tmp_str.data = first_point;
-                tmp_str.len = last_point - first_point;
-            }
-        }
-        res = tmp_str;
-    }
-
-    njt_int_t rc2 = njt_http_wasm_request_output(r, NJT_HTTP_OK, &res);
-    njt_http_finalize_request(r, rc2);
-    return res;
 }

@@ -18,3 +18,5 @@ njt_module_libs=""  #-lpthread
 . auto/module
 
 
+CORE_INCS="$CORE_INCS /root/.wasmedge/include/"
+CORE_LIBS="$CORE_LIBS -L/root/.wasmedge/lib/ -lwasmedge"

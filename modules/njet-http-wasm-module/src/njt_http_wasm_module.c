@@ -60,11 +60,11 @@ static njt_command_t njt_http_wasm_commands[] = {
      NJT_HTTP_LOC_CONF_OFFSET,
      offsetof(njt_http_wasm_loc_conf_t, wasm_enable),
      NULL},
-    {njt_string("wasm_runtime"),
+    {njt_string("wasm_func_name"),
      NJT_HTTP_MAIN_CONF | NJT_HTTP_SRV_CONF | NJT_HTTP_LOC_CONF | NJT_CONF_ANY,
      njt_conf_set_str_slot,
      NJT_HTTP_LOC_CONF_OFFSET,
-     offsetof(njt_http_wasm_loc_conf_t, runtime),
+     offsetof(njt_http_wasm_loc_conf_t, func_name),
      NULL},
     {njt_string("wasm_plugin_path"),
      NJT_HTTP_MAIN_CONF | NJT_HTTP_SRV_CONF | NJT_HTTP_LOC_CONF | NJT_CONF_ANY,
@@ -151,8 +151,8 @@ njt_http_wasm_create_loc_conf(njt_conf_t *cf)
         return NULL;
     }
     uclcf->wasm_enable = NJT_CONF_UNSET;
-    uclcf->runtime.len = 0;
-    uclcf->runtime.data = NULL;
+    uclcf->func_name.len = 0;
+    uclcf->func_name.data = NULL;
     uclcf->plugin_path.len = 0;
     uclcf->plugin_path.data = NULL;
     uclcf->memory = NULL;
@@ -233,7 +233,7 @@ static char *njt_http_wasm_merge_loc_conf(njt_conf_t *cf,
     njt_http_wasm_loc_conf_t *conf = child;
 
     njt_conf_merge_value(conf->wasm_enable, prev->wasm_enable, 0);
-    njt_conf_merge_str_value(conf->runtime, prev->runtime, "");
+    njt_conf_merge_str_value(conf->func_name, prev->func_name, "");
     njt_conf_merge_str_value(conf->plugin_path, prev->plugin_path, "");
     return NJT_CONF_OK;
 }
@@ -408,7 +408,7 @@ njt_http_wasm_read_data(njt_http_request_t *r)
                                 WasmEdge_ValueGenI32(input_len)};
 
     WasmEdge_Value Returns[1] = {};
-    WasmEdge_String FuncName = WasmEdge_StringCreateByCString((char *)wasm_clcf->runtime.data);
+    WasmEdge_String FuncName = WasmEdge_StringCreateByCString((char *)wasm_clcf->func_name.data);
     Res = WasmEdge_VMExecute(vm, FuncName, Params, 2, Returns, 1);
     if (!WasmEdge_ResultOK(Res))
     {

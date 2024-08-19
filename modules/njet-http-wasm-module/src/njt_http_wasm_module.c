@@ -45,6 +45,8 @@ njt_http_wasm_create_main_conf(njt_conf_t *cf);
 
 static njt_int_t
 njt_http_wasm_init(njt_conf_t *cf);
+static void
+load_wasm_instance(njt_http_wasm_loc_conf_t *conf, const char *path);
 
 static char *
 njt_http_wasm_plugin(njt_conf_t *cf, njt_command_t *cmd, void *conf);
@@ -172,6 +174,58 @@ njt_http_wasm_create_main_conf(njt_conf_t *cf)
     uclcf->size = NJT_CONF_UNSET;
     return uclcf;
 }
+
+static void load_wasm_instance(njt_http_wasm_loc_conf_t *conf, const char *path)
+{
+    WasmEdge_ConfigureContext *ConfCxt = WasmEdge_ConfigureCreate();
+    WasmEdge_ConfigureAddHostRegistration(ConfCxt, WasmEdge_HostRegistration_Wasi);
+
+    conf->vm = WasmEdge_VMCreate(ConfCxt, NULL);
+    WasmEdge_VMContext *VMCxt = conf->vm;
+    WasmEdge_ConfigureDelete(ConfCxt);
+
+    WasmEdge_ModuleInstanceContext *WasiCxt =
+        WasmEdge_VMGetImportModuleContext(VMCxt, WasmEdge_HostRegistration_Wasi);
+    WasmEdge_ModuleInstanceInitWASI(WasiCxt, NULL, 0, NULL, 3, NULL, 0);
+
+    WasmEdge_Result Res;
+
+    Res = WasmEdge_VMLoadWasmFromFile(VMCxt, path);
+    if (!WasmEdge_ResultOK(Res))
+    {
+        njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Load WASM failed. Error message: %s\n",
+                      WasmEdge_ResultGetMessage(Res));
+        return;
+    }
+    Res = WasmEdge_VMValidate(VMCxt);
+
+    if (!WasmEdge_ResultOK(Res))
+    {
+        njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Validate WASM failed. Error message: %s\n",
+                      WasmEdge_ResultGetMessage(Res));
+        return;
+    }
+    Res = WasmEdge_VMInstantiate(VMCxt);
+
+    if (!WasmEdge_ResultOK(Res))
+    {
+        njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Instantiate WASM failed. Error message: %s\n",
+                      WasmEdge_ResultGetMessage(Res));
+        return;
+    }
+
+    const WasmEdge_ModuleInstanceContext *mod_inst = WasmEdge_VMGetActiveModule(VMCxt);
+    WasmEdge_MemoryInstanceContext *memory = WasmEdge_ModuleInstanceFindMemory(mod_inst, WasmEdge_StringCreateByCString("memory"));
+    if (!memory)
+    {
+        njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Failed to find memory instance.",
+                      WasmEdge_ResultGetMessage(Res));
+        return;
+    }
+    conf->memory = memory;
+    return;
+}
+
 static char *njt_http_wasm_merge_loc_conf(njt_conf_t *cf,
                                           void *parent, void *child)
 {
@@ -181,60 +235,6 @@ static char *njt_http_wasm_merge_loc_conf(njt_conf_t *cf,
     njt_conf_merge_value(conf->wasm_enable, prev->wasm_enable, 0);
     njt_conf_merge_str_value(conf->runtime, prev->runtime, "");
     njt_conf_merge_str_value(conf->plugin_path, prev->plugin_path, "");
-
-    if (true)
-    // if (conf->plugin_path.data != NULL)
-    {
-        WasmEdge_ConfigureContext *ConfCxt = WasmEdge_ConfigureCreate();
-        WasmEdge_ConfigureAddHostRegistration(ConfCxt, WasmEdge_HostRegistration_Wasi);
-
-        conf->vm = WasmEdge_VMCreate(ConfCxt, NULL);
-        WasmEdge_VMContext *VMCxt = conf->vm;
-        WasmEdge_ConfigureDelete(ConfCxt);
-
-        WasmEdge_ModuleInstanceContext *WasiCxt =
-            WasmEdge_VMGetImportModuleContext(VMCxt, WasmEdge_HostRegistration_Wasi);
-        WasmEdge_ModuleInstanceInitWASI(WasiCxt, NULL, 0, NULL, 3, NULL, 0);
-
-        WasmEdge_Result Res;
-
-        // Res = WasmEdge_VMLoadWasmFromFile(VMCxt, (const char *)conf->plugin_path.data);
-        Res = WasmEdge_VMLoadWasmFromFile(VMCxt, "/root/wasmedgedemo/wasm_hello/target/"
-                                                 "wasm32-wasi/release/wasm_hello.wasm");
-        if (!WasmEdge_ResultOK(Res))
-        {
-            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Load WASM failed. Error message: %s\n",
-                          WasmEdge_ResultGetMessage(Res));
-            return NJT_CONF_ERROR;
-        }
-        Res = WasmEdge_VMValidate(VMCxt);
-
-        if (!WasmEdge_ResultOK(Res))
-        {
-            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Validate WASM failed. Error message: %s\n",
-                          WasmEdge_ResultGetMessage(Res));
-            return NJT_CONF_ERROR;
-        }
-        Res = WasmEdge_VMInstantiate(VMCxt);
-
-        if (!WasmEdge_ResultOK(Res))
-        {
-            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Instantiate WASM failed. Error message: %s\n",
-                          WasmEdge_ResultGetMessage(Res));
-            return NJT_CONF_ERROR;
-        }
-
-        const WasmEdge_ModuleInstanceContext *mod_inst = WasmEdge_VMGetActiveModule(VMCxt);
-        WasmEdge_MemoryInstanceContext *memory = WasmEdge_ModuleInstanceFindMemory(mod_inst, WasmEdge_StringCreateByCString("memory"));
-        if (!memory)
-        {
-            njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "Failed to find memory instance.",
-                          WasmEdge_ResultGetMessage(Res));
-            return NJT_CONF_ERROR;
-        }
-        conf->memory = memory;
-    }
-
     return NJT_CONF_OK;
 }
 
@@ -362,6 +362,24 @@ static void
 njt_http_wasm_read_data(njt_http_request_t *r)
 {
     njt_http_wasm_loc_conf_t *wasm_clcf = njt_http_get_module_loc_conf(r, njt_http_wasm_module);
+    if (wasm_clcf->vm == NULL)
+    {
+        njt_str_t path = wasm_clcf->plugin_path;
+        u_char *wasmPath = path.data;
+        if (path.data[path.len] != '\0')
+        {
+            u_char *new_data = njt_palloc(r->pool, path.len + 1);
+            if (new_data == NULL)
+            {
+                return;
+            }
+            njt_memcpy(new_data, path.data, path.len);
+            new_data[path.len] = '\0';
+            wasmPath = new_data;
+        }
+        load_wasm_instance(wasm_clcf, (const char *)wasmPath);
+    }
+
     njt_str_t response_data = njt_string("wasm world!");
     njt_str_t no_json_body = njt_string("no body content");
     njt_str_t json_body;

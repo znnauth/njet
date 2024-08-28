@@ -1,0 +1,19 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+WASMEDGE="auto/lib/wasmedge"
+case "$CC" in
+    *)
+    # CORE_LIBS="$CORE_LIBS -L$WASMEDGE/build/lib/"
+    # CORE_LIBS="$CORE_LIBS -L$WASMEDGE/build/lib/ -lwasmedge"
+	# CORE_INCS="$CORE_INCS $WASMEDGE/include/"
+	# CORE_INCS="$CORE_INCS $WASMEDGE/include/"
+
+    CORE_DEPS="$CORE_DEPS $WASMEDGE/include/api/wasmedge/wasmedge.h"
+    ;;
+esac
+
+
+

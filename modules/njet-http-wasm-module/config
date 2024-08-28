@@ -13,10 +13,13 @@ njt_module_srcs=" \
 
 njt_module_libs=""  #-lpthread 
 
- have=NJT_HTTP_HELLO_MODULE . auto/have
+have=NJT_HTTP_WASM_MODULE . auto/have
+njt_module_incs="$njt_addon_dir/../../auto/lib/wasmedge/build/include/api"
+njt_module_libs="-L$njt_addon_dir/../../auto/lib/wasmedge/build/lib/api/ -lwasmedge"
 
+NJT_HTTP_WASM="YES"
 . auto/module
 
 
-CORE_INCS="$CORE_INCS /root/.wasmedge/include/"
-CORE_LIBS="$CORE_LIBS -L/root/.wasmedge/lib/ -lwasmedge"
+# CORE_INCS="$CORE_INCS /root/.wasmedge/include/"
+# CORE_LIBS="$CORE_LIBS -L/root/.wasmedge/lib/ -lwasmedge"

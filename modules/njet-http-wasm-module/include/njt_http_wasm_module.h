@@ -1,5 +1,5 @@
-#ifndef NJT_HTTP_HELLO_MODULE_H
-#define NJT_HTTP_HELLO_MODULE_H
+#ifndef NJT_HTTP_WASM_MODULE_H
+#define NJT_HTTP_WASM_MODULE_H
 
 #include <njt_config.h>
 #include <njt_core.h>

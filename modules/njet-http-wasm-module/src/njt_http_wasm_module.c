@@ -5,7 +5,8 @@
 #include <njt_json_api.h>
 #include <math.h>
 #include <njt_http_kv_module.h>
-#include <njt_http_wasm_module.h>
+#include "../include/njt_http_wasm_module.h"
+// #include <njt_http_wasm_module.h">
 #include <njt_http_util.h>
 #include <njt_str_util.h>
 #include "njt_http_api_register_module.h"

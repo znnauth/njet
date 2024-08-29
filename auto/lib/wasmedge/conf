@@ -11,7 +11,7 @@ case "$CC" in
 	# CORE_INCS="$CORE_INCS $WASMEDGE/include/"
 	# CORE_INCS="$CORE_INCS $WASMEDGE/include/"
 
-    CORE_DEPS="$CORE_DEPS $WASMEDGE/include/api/wasmedge/wasmedge.h"
+    CORE_DEPS="$CORE_DEPS $WASMEDGE/build/include/api/wasmedge/wasmedge.h"
     ;;
 esac
 

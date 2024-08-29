@@ -4,9 +4,6 @@ njt_module_name=$njt_addon_name
 njt_module_incs=" \
 $njt_addon_dir/include \
 "
-njt_module_deps=" \
-$njt_addon_dir/include/njt_http_wasm_module.h \
-"
 njt_module_srcs=" \
   $njt_addon_dir/src/njt_http_wasm_module.c \
 "

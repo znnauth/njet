@@ -16,10 +16,11 @@ END
         fi
         cat << END                                            >> $NJT_MAKEFILE
 
-$WASMEDGE/include/api/wasmedge/wasmedge.h:
-	mkdir -p $WASMEDGE/build \\
-	cd $WASMEDGE/build \\
-    && $CMAKE -DCMAKE_BUILD_TYPE=Release -DWASMEDGE_BUILD_SHARED_LIB=ON ../ \\
+$WASMEDGE/build/include/api/wasmedge/wasmedge.h:
+	cd $WASMEDGE \\
+    && mkdir -p build \\
+    && cd build \\
+    && $CMAKE -DCMAKE_BUILD_TYPE=Release -DWASMEDGE_BUILD_SHARED_LIB=ON .. \\
     && \$(MAKE)
 END
     ;;

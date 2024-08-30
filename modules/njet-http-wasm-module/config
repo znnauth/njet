@@ -11,8 +11,8 @@ njt_module_srcs=" \
 njt_module_libs=""  #-lpthread 
 
 have=NJT_HTTP_WASM_MODULE . auto/have
-njt_module_incs="$njt_addon_dir/../../auto/lib/wasmedge/build/include/api"
-njt_module_libs="-L$njt_addon_dir/../../auto/lib/wasmedge/build/lib/api/ -lwasmedge"
+njt_module_incs="$njt_addon_dir/../../auto/lib/wasmedge/build/include/"
+njt_module_libs="-L$njt_addon_dir/../../auto/lib/wasmedge/build/lib/ -lwasmedge"
 
 NJT_HTTP_WASM="YES"
 . auto/module

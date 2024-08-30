@@ -1,4 +1,0 @@
-*.bpf.o
-bootstrap.bpf.c
-runqlat.bpf.c
-bootstrap.h

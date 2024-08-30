@@ -16,12 +16,10 @@ END
         fi
         cat << END                                            >> $NJT_MAKEFILE
 
-$WASMEDGE/build/include/api/wasmedge/wasmedge.h:
+$WASMEDGE/build/include/wasmedge/wasmedge.h:
 	cd $WASMEDGE \\
     && mkdir -p build \\
-    && cd build \\
-    && $CMAKE -DCMAKE_BUILD_TYPE=Release -DWASMEDGE_BUILD_SHARED_LIB=ON .. \\
-    && \$(MAKE)
+    && cp -r lib-0.14.1-manylinux2014/$wasm_arch/* build
 END
     ;;
 

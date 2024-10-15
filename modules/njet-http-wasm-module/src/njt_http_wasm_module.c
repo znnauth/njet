@@ -65,7 +65,7 @@ static char *njt_http_wasm_merge_loc_conf(njt_conf_t *cf,
 static void *
 njt_http_wasm_create_main_conf(njt_conf_t *cf);
 
-static void njt_http_wasm_stop(njt_cycle_t *cycle);
+static void njt_http_wasm_exit(njt_cycle_t *cycle);
 
 static njt_int_t
 njt_http_wasm_init(njt_conf_t *cf);
@@ -118,7 +118,7 @@ njt_module_t njt_http_wasm_module = {
     njt_http_wasm_init_worker,
     NULL,
     NULL,
-    njt_http_wasm_stop,
+    njt_http_wasm_exit,
     NULL,
     NJT_MODULE_V1_PADDING};
 
@@ -128,42 +128,20 @@ njt_http_wasm_plugin(njt_conf_t *cf, njt_command_t *cmd, void *conf)
 
     njt_http_wasm_loc_conf_t *clcf = conf;
     clcf->wasm_enable = 1;
+    
+    njt_http_core_loc_conf_t *core_conf;
+    core_conf = njt_http_conf_get_module_loc_conf(cf, njt_http_core_module);
+    core_conf->handler = njt_http_wasm_handler;
+
     return NJT_CONF_OK;
 }
 
 static njt_int_t
 njt_http_wasm_init(njt_conf_t *cf)
 {
-    njt_http_core_main_conf_t *cmcf;
-    njt_http_handler_pt *h;
-    njt_http_wasm_main_conf_t *dlmcf;
-
-    dlmcf = njt_http_conf_get_module_main_conf(cf, njt_http_wasm_module);
-    if (dlmcf->size == NJT_CONF_UNSET)
-    {
-        dlmcf->size = 500;
-    }
-    dlmcf->reqs = njt_pcalloc(cf->pool, sizeof(njt_http_request_t *) * dlmcf->size);
-    if (dlmcf->reqs == NULL)
-    {
-        njt_log_error(NJT_LOG_EMERG, njt_cycle->log, 0, "njt_http_wasm_postconfiguration alloc mem error");
-        return NJT_ERROR;
-    }
-
-    cmcf = njt_http_conf_get_module_main_conf(cf, njt_http_core_module);
-    if (cmcf == NULL)
-    {
-        return NJT_ERROR;
-    }
-    h = njt_array_push(&cmcf->phases[NJT_HTTP_CONTENT_PHASE].handlers);
-    if (h == NULL)
-    {
-        return NJT_ERROR;
-    }
-
-    *h = njt_http_wasm_handler;
     return NJT_OK;
 }
+
 static void *
 njt_http_wasm_create_loc_conf(njt_conf_t *cf)
 {
@@ -281,7 +259,6 @@ njt_http_wasm_handler(njt_http_request_t *r)
     rc = njt_http_read_client_request_body(r, njt_http_wasm_read_data);
     if (rc >= NJT_HTTP_SPECIAL_RESPONSE)
     {
-        /* error */
         return rc;
     }
 
@@ -358,6 +335,7 @@ static void add_obj_to_json(char *str, char *key, char *value)
 static char *loop_headers(njt_http_request_t *r)
 {
     char *res = njt_palloc(r->pool, 1000);
+    memset(res, 0, 1000);
     strcat(res, "{\"headers\": { \"proxy-from\": \"wasm-module\"");
     njt_list_part_t *part = &r->headers_in.headers.part;
     njt_table_elt_t *data = part->elts;
@@ -440,6 +418,7 @@ njt_http_wasm_read_data(njt_http_request_t *r)
 
     WasmEdge_Value Params[2] = {WasmEdge_ValueGenI32(ptr_offset),
                                 WasmEdge_ValueGenI32(input_len)};
+    ptr_offset += input_len;
 
     WasmEdge_Value Returns[1] = {};
     WasmEdge_String FuncName = WasmEdge_StringCreateByCString((char *)wasm_clcf->func_name.data);
@@ -461,7 +440,7 @@ njt_http_wasm_read_data(njt_http_request_t *r)
 
     u_char *c_string = (u_char *)WasmEdge_MemoryInstanceGetPointer(memory, str_ptr, str_len);
 
-    njt_int_t plugin_response_status = 0;
+    njt_int_t plugin_response_status = 200;
     if (str_len > 3)
     {
         char tmp[4];
@@ -485,7 +464,6 @@ njt_http_wasm_read_data(njt_http_request_t *r)
         c_string = (u_char *)"插件返回格式出错";
         str_len = 24;
     }
-    
 
     njt_str_t tmp_str;
     tmp_str.data = c_string;
@@ -498,7 +476,7 @@ njt_http_wasm_read_data(njt_http_request_t *r)
 }
 
 
-static void njt_http_wasm_stop(njt_cycle_t *cycle)
+static void njt_http_wasm_exit(njt_cycle_t *cycle)
 {
     WasmEdge_VMDelete(vm);
     WasmEdge_MemoryInstanceDelete(memory);

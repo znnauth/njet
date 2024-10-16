@@ -57,6 +57,7 @@ enum node_state {
 
 typedef struct njt_gossip_member_node_info_s{
 	u_char					 		ip[4];
+	u_char							last_master_ip[4];
 	u_int16_t 				 		sync_port;
 	u_int16_t 				 		ctrl_port;
 }njt_gossip_member_node_info_t;
@@ -68,8 +69,8 @@ typedef struct njt_gossip_member_list_s
     njt_str_t 						node_name;
 	njt_gossip_member_node_info_t   node_info;
 	njt_str_t						pid;
-    njt_msec_t  					last_seen;
-    njt_msec_t  					uptime;
+    njt_msec_t  					boot_time;
+	njt_msec_t  					last_seen;
 	uint32_t  						state;
 	bool 							need_syn;
 } njt_gossip_member_list_t;
@@ -78,7 +79,9 @@ struct gossip_app_msg_handle_s {
 	uint32_t 			app_magic;
 	void 				*data;
 	gossip_app_pt 		handler;
-	gossip_app_node_pt 	node_handler;	//when a node is on/off
+	gossip_app_node_on_single_pt 	node_on_single_handler;	//when a node is on/off, just only need one node sync data to new node
+	gossip_app_node_on_all_pt 		node_on_all_handler;	//when a node is on/off, just only need one node sync data to new node
+	gossip_app_node_off_pt			node_off_handler;
 } ;
 typedef struct gossip_app_msg_handle_s  gossip_app_msg_handle_t;
 
@@ -107,6 +110,7 @@ struct njt_gossip_udp_ctx_s
 
 	njt_str_t					*cluster_name;
 	njt_str_t					*node_name;
+	njt_str_t					*iface;
 	njt_str_t					*pid;
 	njt_gossip_member_node_info_t	node_info;
 
@@ -125,7 +129,6 @@ struct njt_gossip_udp_ctx_s
     njt_log_t                   *log;
 
 	njt_msec_t 					 boot_timestamp;
-	njt_msec_t 					 last_seen;
 	bool						 need_syn;
 
 
@@ -139,6 +142,7 @@ typedef struct
 {
 	njt_str_t					*cluster_name;
 	njt_str_t					*node_name;
+	njt_str_t					*iface;
 	njt_gossip_member_node_info_t	 node_info;
 	njt_flag_t					node_info_set;
 
@@ -147,10 +151,13 @@ typedef struct
     struct sockaddr 			*sockaddr;
 	socklen_t 					 socklen;
 
-    //heartbeat timeout, default 10000 ms
+	//boot_timestamp, defatult 100ms
+	njt_msec_t                   boot_timestamp;
+
+    //heartbeat timeout, default 100 ms, min 10ms
 	njt_msec_t                   heartbeat_timeout;
 
-	//nodeclean timeout, should > heartbeat timeout, default 2*heartbeat
+	//nodeclean timeout, should > heartbeat timeout, default 2*heartbeat, min 1s
 	njt_msec_t                   nodeclean_timeout;
 	njt_event_t                  nc_timer;
 

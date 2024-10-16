@@ -108,3 +108,13 @@
 ./modules/njet-http-mqtt-module
 #optional
 ./modules/njet-http-wasm-module
+#optional
+./modules/njet-http-privilege-agent-check-module
+#optional
+./modules/njet-http-token-sync-module
+#optional
+./modules/njet-stream-mqtt-proxy-module
+#optional
+./modules/njet-helper-go-copilot-module
+#optional
+#./modules/njet-python-module

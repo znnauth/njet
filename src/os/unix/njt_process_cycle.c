@@ -17,6 +17,7 @@
 #define MAX_DYN_WORKER_C 512
 #define WORKER_COUNT_KEY "kv_http___master_worker_count"
 
+extern int njt_kv_sendmsg(njt_str_t *topic, njt_str_t *content, int retain_flag);
 static void njt_start_worker_processes(njt_cycle_t *cycle, njt_int_t n,
     njt_int_t type);
 static void njt_start_cache_manager_processes(njt_cycle_t *cycle,
@@ -805,6 +806,50 @@ njt_helper_preprocess_cycle(njt_cycle_t *cycle, void *data, njt_int_t *reload, v
     njt_md5_final(process->param_md5, &md5);
 }
 
+static void njt_helper_set_copilot_pid(njt_cycle_t *cycle, njt_helper_ctx *ctx)
+{
+    njt_int_t      rc;
+    u_char         c_pid_k[256];  //for copilot pid key, prefix with "kv_http___COPILOT_PID_"
+    u_char         c_pid_v[8];   //for copilot pid value in kv, pid of 64-bit cpu could be up to 2^22
+    char *prefix;
+    char *log;
+    char *client_id;
+    char *p;
+
+    prefix = njt_calloc(cycle->prefix.len + 1, cycle->log);
+    log = njt_calloc(cycle->prefix.len + 16 + ctx->label.len +1, cycle->log);
+    client_id = njt_calloc(16 + ctx->label.len +1, cycle->log);
+
+    if (prefix==NULL || log ==NULL || client_id==NULL) {
+       njt_log_error(NJT_LOG_ERR, cycle->log, 0, "njt_calloc failed in njt_helper_set_copilot_pid, copilot pid is not set");
+       return;
+    }
+    njt_memcpy(prefix, cycle->prefix.data, cycle->prefix.len);
+    p = (char *)(njt_cpymem(client_id,  "mdb_ctx_copilot_",  16));
+    p = (char *)(njt_cpymem(p, ctx->label.data, ctx->label.len));
+    p = (char *)(njt_cpymem(log, prefix,  cycle->prefix.len));
+    p = (char *)(njt_cpymem(p, "logs/mdb_client_",  16));
+    p = (char *)(njt_cpymem(p, ctx->label.data, ctx->label.len));
+
+    ctx->param.mdb_ctx = njet_iot_client_init(prefix, "", NULL,
+        NULL, client_id, log, cycle);
+    if (ctx->param.mdb_ctx) {
+        njt_memzero(c_pid_k, 256);
+        njt_snprintf(c_pid_k, 255, "kv_http___COPILOT_PID_%v", &ctx->label);
+        njt_memzero(c_pid_v, 8);
+        njt_sprintf(c_pid_v, "%d", njt_pid);
+        rc = njet_iot_client_kv_set(c_pid_k, njt_strlen(c_pid_k), c_pid_v, njt_strlen(c_pid_v), NULL, ctx->param.mdb_ctx);
+        if (rc != NJT_OK) {
+            njt_log_error(NJT_LOG_ERR, cycle->log, 0, "error setting copilot's pid into kvstore");
+        }
+    } else {
+        njt_log_error(NJT_LOG_ERR, cycle->log, 0, "can't create mdb_ctx for copilot %V", &ctx->label);
+    }
+
+    njt_free(prefix);
+    njt_free(log);
+    njt_free(client_id);
+}
 
 void
 njt_helper_process_cycle(njt_cycle_t *cycle, void *data)
@@ -853,6 +898,8 @@ njt_helper_process_cycle(njt_cycle_t *cycle, void *data)
     njt_add_timer(&ev, 0);
     ctx->param.check_cmd_fp = njt_helper_check_cmd;
     ctx->param.ctx = cycle;
+
+    njt_helper_set_copilot_pid(cycle, ctx);
 
     if ((ctx->start_time_bef > 0) && (ctx->start_time - ctx->start_time_bef < 12)) {
         njt_log_error(NJT_LOG_NOTICE, cycle->log, 0, "to sleep %ui seconds", 12 + ctx->start_time_bef - ctx->start_time);
@@ -2320,7 +2367,11 @@ njt_cache_manager_process_cycle(njt_cycle_t *cycle, void *data)
 static void
 njt_privileged_agent_process_cycle(njt_cycle_t *cycle, void *data)
 {
-    char   *name = data;
+    char        *name = data;
+    u_char      msg[20];
+    njt_str_t   msg_str;
+    njt_str_t   msg_topic=njt_string("/privilege_agent/njt_cycle_addr");
+    njt_int_t   msg_sent, rc;
 
     /*
      * Set correct process type since closing listening Unix domain socket
@@ -2350,7 +2401,20 @@ njt_privileged_agent_process_cycle(njt_cycle_t *cycle, void *data)
 
     njt_setproctitle(name);
 
+    //when privilege agent is initilizated and running, sent out current njt_cycle address
+    njt_memzero(msg, 20);
+    njt_snprintf(msg, 19, "%p", njt_cycle);
+    msg_str.data = msg;
+    msg_str.len = njt_strlen(msg);
+    msg_sent = 0;
+
     for ( ;; ) {
+        if (!msg_sent) {
+            rc = njt_kv_sendmsg(&msg_topic, &msg_str, 1);
+            if (rc == NJT_OK) {
+              msg_sent=1;
+            }
+        }
 
         if (njt_terminate || njt_quit) {
             njt_log_error(NJT_LOG_NOTICE, cycle->log, 0, "exiting");

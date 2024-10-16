@@ -374,7 +374,7 @@ njt_http_wasm_read_data(njt_http_request_t *r)
         }
 
         u_char *wasmPath = path.data;
-        if (path.data[path.len] != '\0')
+        if (path.data[path.len - 1] != '\0')
         {
             u_char *new_data = njt_palloc(r->pool, path.len + 1);
             if (new_data == NULL)

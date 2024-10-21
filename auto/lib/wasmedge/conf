@@ -1,0 +1,31 @@
+
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+# Copyright (C) TMLake, Inc.
+
+WASMEDGE="auto/lib/wasmedge"
+wasm_arch=$(uname -m)
+wasm_os_type=$(uname -s)
+
+case "$CC" in
+    *)
+    if [ "$wasm_arch" != "x86_64" ] && [ "$wasm_arch" != "aarch64" ]; then
+        cat << END
+        $0: error:  not allow build use with system architecture $wasm_arch.
+END
+    exit 1
+    fi
+
+    if [ "$wasm_os_type" != Linux ]; then
+        cat << END
+        $0: error:  not allow build use with operating system  $wasm_os_type.
+END
+    exit 1
+    fi
+
+    CORE_DEPS="$CORE_DEPS $WASMEDGE/build/include/wasmedge/wasmedge.h"
+    ;;
+esac
+
+
+

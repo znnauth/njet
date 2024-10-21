@@ -36,6 +36,9 @@ fi
 if [ "$NJT_HTTP_MODSECURITY" = "YES" ]; then
    . auto/lib/modsecurity/conf
 fi
+if [ "$NJT_HTTP_WASM" = "YES" ]; then
+   . auto/lib/wasmedge/conf
+fi
 
 if [ $USE_ZLIB = YES ]; then
     . auto/lib/zlib/conf

@@ -1,0 +1,26 @@
+case "$CC" in
+    bcc32)
+
+cat << END
+
+$0: error:  not allow build use bcc32
+
+END
+
+    ;;
+
+    *)
+        CMAKE="cmake"
+        if command -v cmake3 > /dev/null; then
+           CMAKE="cmake3"
+        fi
+        cat << END                                            >> $NJT_MAKEFILE
+
+$WASMEDGE/build/include/wasmedge/wasmedge.h:
+	cd $WASMEDGE \\
+    && mkdir -p build \\
+    && cp -r lib-0.14.1-manylinux2014/$wasm_arch/* build
+END
+    ;;
+
+esac

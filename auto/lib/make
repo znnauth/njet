@@ -23,6 +23,9 @@ fi
 if [ "$NJT_HTTP_MODSECURITY" = "YES" ]; then
     . auto/lib/modsecurity/make
 fi
+if [ "$NJT_HTTP_WASM" = "YES" ]; then
+    . auto/lib/wasmedge/make
+fi
 
 if [ $ZLIB != NONE -a $ZLIB != NO -a $ZLIB != YES ]; then
     . auto/lib/zlib/make
@@ -40,5 +43,3 @@ if [ $NJT_LIBTCC != NO ]; then
 fi
 cd auto/lib/luapkg && make
 cd -
-
-

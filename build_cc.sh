@@ -13,6 +13,8 @@ export LUAJIT_INC='/etc/njet/luajit/include/luajit-2.1'
 export LUAJIT_LIB='/etc/njet/luajit/lib'
 #--with-ld-opt='-Wl,-rpath,/usr/local/tassl/openssl/lib'
 #--with-cc-opt=-I'auto/lib/tassl/include' --with-ld-opt='-Wl,-rpath,/usr/local/tassl/openssl/lib'
+--with-cc-opt='-I/usr/local/include'  
+--with-ld-opt='-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lwolfssl'
 NJET_MODULES="$NJET_MODULES --add-module=./modules/njet-stream-proto-module"
 NJET_MODULES="$NJET_MODULES --add-module=./modules/njet-util-module"  #njet-http-if-location-module
 NJET_MODULES="$NJET_MODULES --add-module=./modules/njet-http-if-location-module"  #njet-http-if-location-module
@@ -105,7 +107,7 @@ cdir=`cd $(dirname $0); pwd`
 		fi
 
                 # ./configure --with-openssl=/root/download/openssl-openssl-3.0.8-quic1  $flags --with-openssl-opt='--strict-warnings' --with-cc-opt="$CC_OPT" --with-ld-opt="$LD_OPT"
-                ./configure --with-openssl=auto/lib/tongsuo $flags --with-openssl-opt='--strict-warnings enable-ntls' --with-ntls --with-cc-opt="$CC_OPT" --with-ld-opt="$LD_OPT"
+                ./configure --with-openssl=/usr/local/lib  --with-cc-opt="$CC_OPT" --with-ld-opt="$LD_OPT"
                 ;;
             make)
                 make
